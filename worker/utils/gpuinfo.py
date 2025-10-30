@@ -1,7 +1,7 @@
 import contextlib
 import os
 
-from pynvml.smi import nvidia_smi
+import nvidia_smi
 
 
 class GPUInfo:
