@@ -2,7 +2,7 @@ gradio
 pyyaml
 unidecode
 regex
-pynvml
+nvidia-ml-py3
 psutil
 windows-curses; sys_platform == 'win32'
 loguru
