@@ -41,6 +41,8 @@ class KoboldAIBridgeData(BridgeDataTemplate):
             self.blacklist = args.blacklist
         if args.openai_api:
             self.openai_api = args.openai_api
+        if args.custom_backend_name:
+            self.custom_backend_name = args.custom_backend_name
         self.validate_kai()
         if self.kai_available and not self.initialized and previous_url != self.horde_url:
             logger.init(
@@ -61,18 +63,32 @@ class KoboldAIBridgeData(BridgeDataTemplate):
                 self.backend_engine = f"aphrodite"
             else:
                 logger.warning("Unable to determine OpenAI API compatible backend engine. Will report it as unknown to the Horde which will lead to less kudos rewards.")
+                self.backend_engine = "unknown"
             if self.openai_api:
-                req = requests.get(self.kai_url + "/v1/models")   
-                self.model = req.json()["data"][0]['id']
-                logger.debug([self.model,self.backend_engine])
+                req = requests.get(self.kai_url + "/v1/models")
+                data = req.json()
+                self.model = data["data"][0]['id'] if data.get("data") else None
+                logger.debug(f"OpenAI API model: {self.model}")
                 self.backend_engine += '~oai'
             else:
                 req = requests.get(self.kai_url + "/api/latest/model")
-                self.model = req.json()["result"]                
+                self.model = req.json()["result"]
+                logger.debug(f"KoboldAI model: {self.model}")
                 self.backend_engine += '~kai'
-            # Normalize huggingface and local downloaded model names
-            if "/" not in self.model:
-                self.model = self.model.replace("_", "/", 1)
+            # Normalize and customize model name if available
+            if self.model and isinstance(self.model, str):
+                logger.debug(f"Custom backend name: {getattr(self, 'custom_backend_name', 'Not set')}")
+                # Apply custom backend name if set
+                if hasattr(self, 'custom_backend_name') and self.custom_backend_name:
+                    if "/" in self.model:
+                        parts = self.model.split('/', 1)
+                        self.model = f"{self.custom_backend_name}/{parts[1]}"
+                    else:
+                        self.model = f"{self.custom_backend_name}/{self.model}"
+                # Normalize huggingface and local downloaded model names (only if no custom prefix added)
+                elif "/" not in self.model:
+                    self.model = self.model.replace("_", "/", 1)
+            logger.debug(f"Model after processing: {self.model}")
             # Now using the settings from the bridge explicitly
             # req = requests.get(self.kai_url + "/api/latest/config/max_context_length")
             # self.max_context_length = req.json()["value"]
@@ -84,6 +100,10 @@ class KoboldAIBridgeData(BridgeDataTemplate):
                     self.softprompts[self.model] = [sp["value"] for sp in req.json()["values"]]
                 req = requests.get(self.kai_url + "/api/latest/config/soft_prompt")
                 self.current_softprompt = req.json()["value"]
+            # Fallback model if not provided by backend
+            if not self.model and hasattr(self, 'fallback_model') and self.fallback_model:
+                self.model = self.fallback_model
+                logger.debug(f"Using fallback model: {self.model}")
         except requests.exceptions.JSONDecodeError:
             logger.error(f"Server {self.kai_url} is up but does not appear to be a KoboldAI server.")
             self.kai_available = False

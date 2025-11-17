@@ -32,5 +32,11 @@ arg_parser.add_argument(
     required=False,
     help="The URL in which the KoboldAI Client API can be found.",
 )
+arg_parser.add_argument(
+    "--custom_backend_name",
+    action="store",
+    required=False,
+    help="Custom backend name to replace the prefix in model names.",
+)
 
 args = arg_parser.parse_args()
